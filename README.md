@@ -1,6 +1,6 @@
-# Legend Boy: your AI assistant for your phone
+# Legend Boy: your AI assistant for your phone (powered by Google Gemini)
 
-Legend Boy is a mobile AI assistant that runs completely on **Cloudflare**. You don't need an OpenAI key, a server, or any other paid API.
+Legend Boy is a mobile AI assistant. **Cloudflare only hosts it** (free). **All the AI runs on Google Gemini** using your own API key.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/Goro888/Alixo)
 
@@ -10,46 +10,58 @@ Legend Boy is a mobile AI assistant that runs completely on **Cloudflare**. You 
 |---|---|
 | **Splash** | Opens with Legend Boy's photo and a glowing animation. Tap it and he **greets you out loud** |
 | **Talk** | Hands-free voice chat. You talk, he listens, stops by himself when you go quiet, answers **with his voice**, then listens again. Tap his face to interrupt him |
-| **Chat** | Streaming AI chat with Markdown and code blocks (with a copy button). Each reply can be copied, read aloud, shared or retried. Chats are saved to the device, and you can use voice typing |
+| **Chat** | Streaming AI chat with Markdown and code blocks. Each reply can be copied, read aloud, shared or retried. Chats are saved to the device, and you can use voice typing |
 | **Camera** | Live camera with front/back flip. Take a photo, then ask about it with a mode: *Describe, Read text, Solve, Translate, Identify, Tips* |
-| **Files & Photos** | Add photos and documents: **PDF, Word, Excel, CSV, text, code**. Then summarise them, explain them, pull out key facts, or get a quiz |
-| **Research** | Searches the web with several queries, reads the pages, and writes a report with **numbered citations** and source cards. Has *Quick* and *Deep* modes |
-| **Create image** | Makes an image from text (FLUX) |
-| **Settings** | Change Legend Boy's photo, set your name, pick his voice (40 HD voices or the phone's built-in voice), choose the speech language, turn on auto-read and the startup greeting, delete chats |
-| **Install as app** | It's a PWA: "Add to Home Screen" gives it an icon and opens it full screen with no browser bar |
+| **Files & Photos** | Reads **PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), CSV, text, code** and photos. Summarise, explain, pull out key facts, or get a quiz |
+| **Research** | Uses **Google Search grounding**: Gemini searches Google and writes a report with **numbered citations** and source cards. Has *Quick* and *Deep* modes |
+| **Create image** | Makes an image from text with Gemini "Nano Banana" |
+| **Settings** | Change Legend Boy's photo, set your name, pick one of 30 Gemini voices (or the phone's voice), choose the speech language (incl. Kurdish and Arabic), turn on auto-read and the greeting, delete chats |
+| **Install as app** | It's a PWA: "Add to Home Screen" gives it an icon and opens it full screen |
 
-### AI models (all Cloudflare Workers AI)
-- Chat + vision: `@cf/meta/llama-4-scout-17b-16e-instruct`
-- Speech-to-text: `@cf/openai/whisper-large-v3-turbo` (many languages)
-- Voice: `@cf/deepgram/aura-2-en`
-- Images: `@cf/black-forest-labs/flux-1-schnell`
-- Documents: Workers AI `toMarkdown()` (PDF, DOCX, XLSX, and more)
+### Gemini models used (change them in `wrangler.jsonc` → `vars`)
+| Var | Default | Used for |
+|---|---|---|
+| `GEMINI_MODEL` | `gemini-flash-latest` (always Google's newest Flash) | chat, photos, research, voice transcription, PDF reading |
+| `GEMINI_TTS_MODEL` | `gemini-3.8-flash-lite-tts` | Legend Boy's voice |
+| `GEMINI_IMAGE_MODEL` | `gemini-3.1-flash-lite-image` | creating images |
+| `TTS_SPEAKER` | `Puck` | default voice |
+
+If a model isn't available on your plan, the app shows a clear error. Voice falls back to the phone's built-in voice automatically.
 
 ---
 
 ## 🚀 Deploy to Cloudflare
 
-### Option A: Cloudflare dashboard (no computer needed, works from a phone)
-1. Log in at **dash.cloudflare.com**, then go to **Workers & Pages → Create → Import a repository**.
-2. Connect GitHub and choose **Goro888/Alixo**.
-3. Build settings:
-   - **Build command:** *(leave empty)*
-   - **Deploy command:** `npx wrangler deploy`
-4. Click **Deploy**. Your app goes live at `https://legend-boy.<your-name>.workers.dev` 🎉
+### 1) Deploy the app
+**From the dashboard (works on a phone):**
+1. Go to **dash.cloudflare.com → Workers & Pages → Create → Import a repository**
+2. Choose **Goro888/Alixo**. Leave **Build command** empty, set **Deploy command:** `npx wrangler deploy`
+3. Click **Deploy**
 
-### Option B: from a computer
-```bash
-npm install
-npx wrangler login      # opens the browser once
-npm run deploy          # = npx wrangler deploy
-```
+**Or from a computer:** `npm install && npx wrangler login && npm run deploy`
 
-### Put it on your phone like a real app
-Open your `workers.dev` link on the phone:
+### 2) Add your Gemini API key (as a SECRET, never in the code)
+1. Get a key at **https://aistudio.google.com/apikey** (new keys start with `AQ.`, which is fine)
+2. Cloudflare dashboard → your Worker **legend-boy** → **Settings → Variables and Secrets → + Add**
+3. **Type:** `Secret` · **Name:** `GEMINI_API_KEY` · **Value:** your key → **Deploy / Save**
+
+   (computer alternative: `npx wrangler secret put GEMINI_API_KEY`)
+
+> ⚠️ Never paste your key into `wrangler.jsonc` or any file. This GitHub repo is public and bots steal keys within minutes.
+
+### 3) Put it on your phone
+Open `https://legend-boy.<your-name>.workers.dev`
 - **iPhone (Safari):** Share → **Add to Home Screen**
-- **Android (Chrome):** ⋮ menu → **Install app** / **Add to Home screen**
+- **Android (Chrome):** ⋮ → **Install app**
 
-> Camera and microphone need **https**. Cloudflare gives you https automatically.
+Camera and microphone need https. Cloudflare gives you https automatically.
+
+### Optional secrets
+| Secret | Why |
+|---|---|
+| `ACCESS_CODE` | Password-locks the app so strangers can't use up your Gemini quota. Enter the code in the app's Settings |
+
+**Cost:** Cloudflare Workers hosting is free (100k requests/day). Gemini has a free tier with per-minute and per-day limits. See your limits at https://aistudio.google.com/rate-limit. If you hit them, the app tells you to wait.
 
 ---
 
@@ -60,33 +72,19 @@ There are two ways:
 
 ---
 
-## 🔐 Optional settings (secrets)
-Set these with `npx wrangler secret put NAME`, or in the dashboard under **Worker → Settings → Variables and Secrets**:
-
-| Secret | Why |
-|---|---|
-| `ACCESS_CODE` | Locks the app with a password so strangers can't use up your AI credits. Enter the code in the app's Settings |
-| `TAVILY_API_KEY` | Better web research ([tavily.com](https://tavily.com), free tier). Without it, research uses DuckDuckGo + Wikipedia |
-| `BRAVE_API_KEY` | Another web search option ([brave.com/search/api](https://brave.com/search/api)) |
-
-You can switch models with the `CHAT_MODEL`, `STT_MODEL`, `TTS_MODEL`, `IMAGE_MODEL` and `TTS_SPEAKER` vars in `wrangler.jsonc`.
-
-**Cost:** Workers AI includes a free daily allowance (10,000 neurons/day on the free plan). That's plenty for personal use. Past that it's pay-as-you-go on the Workers Paid plan.
-
----
-
 ## 🧪 Local development
 ```bash
 npm install
-npm run dev:demo   # demo mode: fake AI answers, no Cloudflare login needed
-npm run dev        # real Workers AI (needs `npx wrangler login`)
+npm run dev:demo   # demo mode: fake AI answers, no key needed
+# real AI locally: create a file .dev.vars with  GEMINI_API_KEY=your_key  (it is git-ignored), then:
+npm run dev
 ```
 
 ## Project structure
 ```
-wrangler.jsonc          Cloudflare config (Worker + static assets + AI binding)
+wrangler.jsonc          Cloudflare config (Worker + static assets + Gemini model vars)
 wrangler.demo.jsonc     Local demo config (fake AI)
-src/worker.js           API: /api/chat, /api/research, /api/transcribe, /api/tts, /api/extract, /api/imagine
+src/worker.js           API (Gemini): /api/chat, /api/research, /api/transcribe, /api/tts, /api/extract, /api/imagine
 public/                 The phone app (no build step)
   index.html            Screens: splash, chat, talk, camera, files, research, settings
   css/app.css           Mobile-first dark UI with safe-area support

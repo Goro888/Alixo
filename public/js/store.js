@@ -9,7 +9,7 @@ export const DEFAULT_AVATAR = "/img/legend-boy.jpg";
 const defaults = {
   name: "",
   engine: "cloud", // cloud | device
-  speaker: "apollo",
+  speaker: "Puck",
   lang: "auto",
   autoSpeak: false,
   greet: true,

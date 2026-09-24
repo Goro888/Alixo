@@ -86,6 +86,7 @@ function setStatus(text, cls = "") {
 }
 
 function friendlyErr(e) {
+  if (e?.code === "NO_KEY") return e.message;
   if (e?.code === "ACCESS_CODE") {
     setTimeout(() => openSettings(true), 400);
     return "This app is locked. Enter your access code in Settings.";
@@ -1074,6 +1075,13 @@ async function runResearch() {
               raf = 0;
               $("#researchReport").innerHTML = renderMarkdown(r.report, { sources: r.sources });
             });
+        } else if (ev.type === "replace") {
+          r.report = ev.text; // final report with citation numbers
+        } else if (ev.type === "reset") {
+          r.report = "";
+          r.sources = [];
+          $("#researchReport").innerHTML = "";
+          $("#researchSources").innerHTML = "";
         } else if (ev.type === "error") {
           r.report += `\n\n⚠️ ${ev.error}`;
         }
@@ -1123,12 +1131,18 @@ function openSettings(focusCode = false) {
   if (focusCode) setTimeout(() => $("#setCode").focus(), 300);
 }
 
-function populateSpeakers(list) {
-  const male = ["apollo", "arcas", "aries", "atlas", "draco", "hermes", "hyperion", "janus", "jupiter", "mars", "neptune", "odysseus", "orion", "orpheus", "pluto", "saturn", "zeus"];
-  const all = list?.length ? list : male;
-  const cap = (s) => s[0].toUpperCase() + s.slice(1);
+const GEMINI_VOICES = {
+  Puck: "m", Charon: "m", Fenrir: "m", Orus: "m", Enceladus: "m", Iapetus: "m", Umbriel: "m", Algieba: "m",
+  Algenib: "m", Rasalgethi: "m", Alnilam: "m", Schedar: "m", Achird: "m", Zubenelgenubi: "m", Sadachbia: "m", Sadaltager: "m",
+  Zephyr: "f", Kore: "f", Leda: "f", Aoede: "f", Callirrhoe: "f", Autonoe: "f", Despina: "f", Erinome: "f",
+  Laomedeia: "f", Achernar: "f", Gacrux: "f", Pulcherrima: "f", Vindemiatrix: "f", Sulafat: "f",
+};
+
+function populateSpeakers(list, genders = GEMINI_VOICES, def = "Puck") {
+  const all = list?.length ? list : Object.keys(GEMINI_VOICES);
+  if (!all.includes(settings.speaker)) saveSettings({ speaker: all.includes(def) ? def : all[0] });
   $("#setSpeaker").innerHTML = all
-    .map((s) => `<option value="${s}">${cap(s)}${male.includes(s) ? " (male)" : " (female)"}${s === "apollo" ? " — default" : ""}</option>`)
+    .map((s) => `<option value="${s}">${s}${genders[s] === "f" ? " (female)" : " (male)"}${s === def ? " — default" : ""}</option>`)
     .join("");
   $("#setSpeaker").value = settings.speaker;
 }
@@ -1218,11 +1232,14 @@ async function checkServer() {
   try {
     const h = await api.health();
     state.server = h;
-    populateSpeakers(h.speakers);
-    if (!settings.speaker && h.speakers?.length) saveSettings({ speaker: "apollo" });
+    populateSpeakers(h.speakers, h.voiceGenders, h.defaultSpeaker);
     setBusy(state.busy);
-    const info = [`AI: ${h.models?.chat?.split("/").pop() || "Workers AI"}`, `Search: ${h.webSearch}`];
-    if (h.mock) info.unshift("⚠️ Demo mode (no AI binding)");
+    const info = [`AI: Google Gemini (${h.models?.chat || "?"})`, `Search: Google`];
+    if (h.mock) info.unshift("⚠️ Demo mode (fake answers)");
+    else if (!h.keyConfigured) {
+      info.unshift("⚠️ GEMINI_API_KEY secret is missing on Cloudflare");
+      setTimeout(() => toast("Add your GEMINI_API_KEY secret in Cloudflare to activate Legend Boy", 5000), 1200);
+    }
     $("#setInfo").textContent = info.join(" · ");
     $("#setCodeWrap").hidden = !h.accessCodeRequired;
     if (h.accessCodeRequired && !settings.code) setTimeout(() => toast("Enter your access code in Settings ⚙️", 4000), 1200);
