@@ -14,6 +14,7 @@ const defaults = {
   autoSpeak: false,
   greet: true,
   code: "",
+  geminiKey: "", // saved only on this device
   handsFree: true,
   muted: false,
 };

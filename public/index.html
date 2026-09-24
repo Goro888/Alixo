@@ -266,6 +266,17 @@
     <button class="btn-primary wide" id="imagineGo">Create</button>
   </div>
 
+  <!-- Connect Gemini sheet -->
+  <div class="sheet" id="keySheet" hidden>
+    <div class="sheet-handle"></div>
+    <h3 class="sheet-title">🔑 Connect Legend Boy to Gemini</h3>
+    <p class="fine left">Paste your Google Gemini API key once. It's saved <b>only on this phone</b> and used to talk to Gemini.</p>
+    <input id="keyInput" class="key-input" type="password" placeholder="Paste your key (starts with AQ. or AIza)" autocomplete="off" autocapitalize="off" spellcheck="false" />
+    <button class="btn-primary wide" id="keySave">Connect</button>
+    <a class="btn-link center" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">Don't have a key? Get a free one →</a>
+    <p class="fine" id="keyMsg"></p>
+  </div>
+
   <!-- History drawer -->
   <aside class="drawer" id="drawer" hidden>
     <div class="drawer-head">
@@ -328,6 +339,10 @@
       </label>
       <label class="toggle"><input type="checkbox" id="setAutoSpeak" /> <span>Read chat replies out loud</span></label>
       <label class="toggle"><input type="checkbox" id="setGreet" /> <span>Greet me with voice when I open the app</span></label>
+      <label class="field">Gemini API key
+        <input id="setGeminiKey" type="password" placeholder="Paste key — saved only on this phone" autocomplete="off" autocapitalize="off" spellcheck="false" />
+        <small class="hint" id="setKeyHint"></small>
+      </label>
       <label class="field" id="setCodeWrap">Access code
         <input id="setCode" type="password" placeholder="Only if you set ACCESS_CODE" autocomplete="off" />
       </label>

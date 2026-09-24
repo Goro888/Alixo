@@ -32,22 +32,38 @@ If a model isn't available on your plan, the app shows a clear error. Voice fall
 
 ## 🚀 Deploy to Cloudflare
 
-### 1) Deploy the app
-**From the dashboard (works on a phone):**
-1. Go to **dash.cloudflare.com → Workers & Pages → Create → Import a repository**
-2. Choose **Goro888/Alixo**. Leave **Build command** empty, set **Deploy command:** `npx wrangler deploy`
-3. Click **Deploy**
+### ✨ What happens automatically
+| Setting | Type | Set up how |
+|---|---|---|
+| `GEMINI_MODEL` = `gemini-flash-latest` | Text | ✅ Automatic, from `wrangler.jsonc` |
+| `GEMINI_TTS_MODEL` = `gemini-3.8-flash-lite-tts` | Text | ✅ Automatic, from `wrangler.jsonc` |
+| `TTS_SPEAKER` = `Puck` | Text | ✅ Automatic, from `wrangler.jsonc` |
+| `GEMINI_IMAGE_MODEL` = `gemini-3.1-flash-lite-image` | Text | ✅ Automatic, from `wrangler.jsonc` |
+| `GEMINI_API_KEY` | **Secret** | ✅ The Deploy button asks for it (from `.dev.vars.example`), **or** the app asks for it the first time you open it |
 
-**Or from a computer:** `npm install && npx wrangler login && npm run deploy`
+### 1) Deploy the app (pick one)
 
-### 2) Add your Gemini API key (as a SECRET, never in the code)
-1. Get a key at **https://aistudio.google.com/apikey** (new keys start with `AQ.`, which is fine)
-2. Cloudflare dashboard → your Worker **legend-boy** → **Settings → Variables and Secrets → + Add**
-3. **Type:** `Secret` · **Name:** `GEMINI_API_KEY` · **Value:** your key → **Deploy / Save**
+**A. One-tap button (easiest):** tap the **Deploy to Cloudflare** button at the top.
+It shows a **GEMINI_API_KEY** box. Paste your key from **https://aistudio.google.com/apikey** and tap **Deploy**.
+Cloudflare saves it as an encrypted **Secret** for you, and the 4 variables are added automatically.
 
-   (computer alternative: `npx wrangler secret put GEMINI_API_KEY`)
+**B. Connect this repo (dashboard, works on a phone):**
+1. **dash.cloudflare.com → Workers & Pages → Create → Import a repository**
+2. Choose **Goro888/Alixo**, branch **main**. Leave **Build command** empty. **Deploy command:** `npx wrangler deploy`
+3. Tap **Deploy**. The 4 variables are added automatically.
 
-> ⚠️ Never paste your key into `wrangler.jsonc` or any file. This GitHub repo is public and bots steal keys within minutes.
+**C. From a computer:** `npm install && npx wrangler login && npm run deploy`
+
+### 2) The Gemini key
+- **If you used the button**, you're done.
+- **Otherwise, just open the app.** Legend Boy shows **"🔑 Connect Legend Boy to Gemini"**. Paste your key once, and it's checked and saved on that phone.
+  (You can change it any time in **Settings ⚙️ → Gemini API key**.)
+- **Or add it on Cloudflare for every device:** Worker → **Settings → Variables and Secrets → + Add** → Type **Secret**, Name `GEMINI_API_KEY` → **Deploy**
+  (computer: `npx wrangler secret put GEMINI_API_KEY`).
+  A key saved on Cloudflare always wins over a key saved in the app.
+
+> ⚠️ Never paste your key into `wrangler.jsonc` or any file in this repo. It's public, and bots steal keys within minutes.
+> A key saved in the app stays on that phone only. A key saved on Cloudflare is shared, so anyone with your link uses it. Add an `ACCESS_CODE` secret (below) to lock the app.
 
 ### 3) Put it on your phone
 Open `https://legend-boy.<your-name>.workers.dev`
@@ -76,7 +92,7 @@ There are two ways:
 ```bash
 npm install
 npm run dev:demo   # demo mode: fake AI answers, no key needed
-# real AI locally: create a file .dev.vars with  GEMINI_API_KEY=your_key  (it is git-ignored), then:
+# real AI locally: copy .dev.vars.example to .dev.vars and paste your key (it is git-ignored), then:
 npm run dev
 ```
 

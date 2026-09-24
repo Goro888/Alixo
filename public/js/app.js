@@ -86,7 +86,10 @@ function setStatus(text, cls = "") {
 }
 
 function friendlyErr(e) {
-  if (e?.code === "NO_KEY") return e.message;
+  if (e?.code === "NO_KEY" || e?.code === "BAD_KEY") {
+    setTimeout(() => openKeySheet(e.code === "BAD_KEY" ? "That key didn't work. Paste a valid Gemini key." : ""), 400);
+    return e.message;
+  }
   if (e?.code === "ACCESS_CODE") {
     setTimeout(() => openSettings(true), 400);
     return "This app is locked. Enter your access code in Settings.";
@@ -115,7 +118,7 @@ function initSplash() {
     vibrate(15);
     $("#splash").classList.add("leaving");
     $("#app").hidden = false;
-    setTimeout(() => ($("#splash").hidden = true), 500);
+    setTimeout(() => { $("#splash").hidden = true; maybeAskKey(); }, 500);
     showView(to);
     if (to === "talk") greetInTalk();
   };
@@ -410,6 +413,7 @@ async function runAssistant({ voice = false, onToken } = {}) {
           if (!raf) raf = requestAnimationFrame(paint);
         } else if (ev.type === "error") {
           bot.error = ev.error;
+          if (ev.code === "BAD_KEY") setTimeout(() => openKeySheet("That key didn't work. Paste a valid Gemini key."), 400);
         }
       },
       controller.signal
@@ -1117,6 +1121,78 @@ function closeOverlays() {
   $$(".sheet, .drawer").forEach((s) => (s.hidden = true));
 }
 
+/* ---------- Gemini key ---------- */
+function needsKey() {
+  const h = state.server;
+  return h && !h.mock && !h.keyConfigured && !settings.geminiKey;
+}
+
+function openKeySheet(msg = "") {
+  if (state.server?.keyConfigured && !msg) return;
+  $("#keyInput").value = settings.geminiKey || "";
+  $("#keyMsg").textContent = msg;
+  $("#keyMsg").className = "fine" + (msg ? " err" : "");
+  openSheet("keySheet");
+  setTimeout(() => $("#keyInput").focus(), 300);
+}
+
+async function saveGeminiKey(key, msgEl) {
+  key = (key || "").trim().replace(/\s+/g, "");
+  if (key.length < 20) {
+    msgEl.textContent = "That doesn't look like a Gemini key.";
+    msgEl.className = msgEl.className.replace(/ ?(ok|err)/g, "") + " err";
+    return false;
+  }
+  msgEl.textContent = "Checking your key…";
+  msgEl.className = msgEl.className.replace(/ ?(ok|err)/g, "");
+  try {
+    const r = await api.verifyKey(key);
+    if (!r.ok) {
+      msgEl.textContent = "❌ " + (r.error || "Key rejected");
+      msgEl.className += " err";
+      return false;
+    }
+    saveSettings({ geminiKey: key });
+    msgEl.textContent = "✅ Connected to Gemini!";
+    msgEl.className += " ok";
+    updateKeyHint();
+    $("#setInfo").textContent = $("#setInfo").textContent.replace(/^🔑 Add your Gemini key to start · /, "");
+    return true;
+  } catch (e) {
+    msgEl.textContent = "❌ " + friendlyErr(e);
+    msgEl.className += " err";
+    return false;
+  }
+}
+
+function updateKeyHint() {
+  const el = $("#setKeyHint");
+  if (!el) return;
+  const h = state.server;
+  if (h?.keyConfigured) { el.textContent = "✅ A key is already saved on Cloudflare — this field is optional."; el.className = "hint ok"; }
+  else if (settings.geminiKey) { el.textContent = "✅ Key saved on this phone."; el.className = "hint ok"; }
+  else { el.textContent = "Needed unless GEMINI_API_KEY is set on Cloudflare."; el.className = "hint"; }
+}
+
+function initKey() {
+  $("#keySave").onclick = async () => {
+    const btn = $("#keySave");
+    btn.disabled = true;
+    const ok = await saveGeminiKey($("#keyInput").value, $("#keyMsg"));
+    btn.disabled = false;
+    if (ok) {
+      setTimeout(closeOverlays, 900);
+      toast("Legend Boy is connected ✅");
+    }
+  };
+  $("#keyInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#keySave").click(); });
+  $("#setGeminiKey").onchange = async (e) => {
+    const v = e.target.value.trim();
+    if (!v) { saveSettings({ geminiKey: "" }); updateKeyHint(); return; }
+    await saveGeminiKey(v, $("#setKeyHint"));
+  };
+}
+
 function openSettings(focusCode = false) {
   $("#setName").value = settings.name;
   $("#setEngine").value = settings.engine;
@@ -1125,6 +1201,8 @@ function openSettings(focusCode = false) {
   $("#setAutoSpeak").checked = settings.autoSpeak;
   $("#setGreet").checked = settings.greet;
   $("#setCode").value = settings.code;
+  $("#setGeminiKey").value = settings.geminiKey || "";
+  updateKeyHint();
   $("#setSpeakerWrap").hidden = settings.engine !== "cloud";
   $("#setAvatarImg").src = store.getAvatar();
   openSheet("settingsSheet");
@@ -1236,10 +1314,9 @@ async function checkServer() {
     setBusy(state.busy);
     const info = [`AI: Google Gemini (${h.models?.chat || "?"})`, `Search: Google`];
     if (h.mock) info.unshift("⚠️ Demo mode (fake answers)");
-    else if (!h.keyConfigured) {
-      info.unshift("⚠️ GEMINI_API_KEY secret is missing on Cloudflare");
-      setTimeout(() => toast("Add your GEMINI_API_KEY secret in Cloudflare to activate Legend Boy", 5000), 1200);
-    }
+    else if (!h.keyConfigured && !settings.geminiKey) info.unshift("🔑 Add your Gemini key to start");
+    updateKeyHint();
+    maybeAskKey();
     $("#setInfo").textContent = info.join(" · ");
     $("#setCodeWrap").hidden = !h.accessCodeRequired;
     if (h.accessCodeRequired && !settings.code) setTimeout(() => toast("Enter your access code in Settings ⚙️", 4000), 1200);
@@ -1247,6 +1324,11 @@ async function checkServer() {
     setStatus("Offline", "offline");
     populateSpeakers();
   }
+}
+
+function maybeAskKey() {
+  // Ask once the user is inside the app (not over the splash screen)
+  if (needsKey() && $("#splash").hidden) openKeySheet();
 }
 
 function boot() {
@@ -1260,6 +1342,7 @@ function boot() {
   initFiles();
   initResearch();
   initSettings();
+  initKey();
   initViewport();
 
   const recent = store.listChats()[0];

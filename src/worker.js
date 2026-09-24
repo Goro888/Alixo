@@ -38,8 +38,10 @@ const MAX_FILE_CHARS = 60000;
 const MAX_MSG_CHARS = 20000;
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, rawEnv) {
     const url = new URL(request.url);
+    // Key priority: Cloudflare secret GEMINI_API_KEY → key saved in the app on the user's phone.
+    const env = withKey(rawEnv, request);
     if (!url.pathname.startsWith("/api/")) return env.ASSETS.fetch(request);
     if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders() });
 
@@ -49,7 +51,7 @@ export default {
       if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
       if (!isMock(env) && !env.GEMINI_API_KEY) {
         return json({
-          error: "GEMINI_API_KEY is not set. In Cloudflare open your Worker → Settings → Variables and Secrets → add a Secret named GEMINI_API_KEY with your Gemini key, then redeploy.",
+          error: "Legend Boy needs your Gemini API key. Paste it in Settings ⚙️ (it's saved only on this phone), or add a Secret named GEMINI_API_KEY in Cloudflare.",
           code: "NO_KEY",
         }, 500);
       }
@@ -61,11 +63,12 @@ export default {
         case "/api/tts": return await handleTTS(request, env);
         case "/api/extract": return await handleExtract(request, env);
         case "/api/imagine": return await handleImagine(request, env);
+        case "/api/verify": return await handleVerify(env);
         default: return json({ error: "Not found" }, 404);
       }
     } catch (err) {
       console.error(err);
-      return json({ error: friendlyError(err) }, err?.status && err.status < 600 ? err.status : 500);
+      return json({ error: friendlyError(err), code: errorCode(err) }, err?.status && err.status < 600 ? err.status : 500);
     }
   },
 };
@@ -73,6 +76,19 @@ export default {
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
+
+function cleanKey(k) {
+  const v = String(k || "").trim();
+  // ignore empty values and placeholders like "your_key_here"
+  if (v.length < 20 || /your|xxx|placeholder|example/i.test(v)) return "";
+  return v;
+}
+
+function withKey(env, request) {
+  const serverKey = cleanKey(env.GEMINI_API_KEY);
+  const appKey = cleanKey(request.headers.get("x-gemini-key"));
+  return { ...env, GEMINI_API_KEY: serverKey || appKey, SERVER_KEY: Boolean(serverKey) };
+}
 
 function models(env) {
   return {
@@ -122,9 +138,29 @@ function friendlyError(err) {
   const msg = String(err?.message || err || "Unknown error");
   const s = err?.status;
   if (s === 429 || /RESOURCE_EXHAUSTED|quota/i.test(msg)) return "Gemini limit reached for now (free tier). Wait a minute and try again. (" + msg.slice(0, 200) + ")";
-  if (s === 401 || s === 403 || /API key|PERMISSION_DENIED|UNAUTHENTICATED/i.test(msg)) return "Gemini rejected the API key. Check GEMINI_API_KEY in Cloudflare. (" + msg.slice(0, 200) + ")";
+  if (s === 401 || s === 403 || /API key|PERMISSION_DENIED|UNAUTHENTICATED/i.test(msg)) return "Gemini rejected the API key — check it in Settings ⚙️ (or the GEMINI_API_KEY secret on Cloudflare). (" + msg.slice(0, 200) + ")";
   if (s === 404 || /not found|is not supported/i.test(msg)) return "Gemini model not available: " + msg.slice(0, 240);
   return msg;
+}
+
+function errorCode(err) {
+  const msg = String(err?.message || "");
+  if (/API key|API_KEY_INVALID|UNAUTHENTICATED|PERMISSION_DENIED/i.test(msg) || err?.status === 401 || err?.status === 403) return "BAD_KEY";
+  if (err?.status === 429 || /RESOURCE_EXHAUSTED|quota/i.test(msg)) return "RATE_LIMIT";
+  return undefined;
+}
+
+/** Check that the Gemini key works (used by the app's "Connect Gemini" screen). */
+async function handleVerify(env) {
+  if (isMock(env)) return json({ ok: true, mock: true });
+  const res = await fetch(`${GEMINI_BASE}/models?pageSize=50`, { headers: { "x-goog-api-key": env.GEMINI_API_KEY } });
+  if (!res.ok) {
+    const err = new GeminiError(extractGeminiError(await res.text()), res.status);
+    return json({ ok: false, error: friendlyError(err), code: errorCode(err) || "BAD_KEY" }, 400);
+  }
+  const data = await res.json().catch(() => ({}));
+  const names = (data.models || []).map((m) => String(m.name || "").replace("models/", ""));
+  return json({ ok: true, server: Boolean(env.SERVER_KEY), models: names.slice(0, 50) });
 }
 
 function health(env) {
@@ -133,7 +169,8 @@ function health(env) {
     name: "Legend Boy",
     provider: "gemini",
     mock: isMock(env),
-    keyConfigured: Boolean(env.GEMINI_API_KEY),
+    keyConfigured: Boolean(env.SERVER_KEY), // key saved on Cloudflare
+    appKeyAccepted: Boolean(env.GEMINI_API_KEY && !env.SERVER_KEY),
     accessCodeRequired: Boolean((env.ACCESS_CODE || "").trim()),
     webSearch: "google",
     models: models(env),
@@ -303,7 +340,7 @@ function sseStream(run) {
       await run(send);
     } catch (err) {
       console.error(err);
-      await send({ type: "error", error: friendlyError(err) });
+      await send({ type: "error", error: friendlyError(err), code: errorCode(err) });
     } finally {
       await send({ type: "done" });
       closed = true;

@@ -12,6 +12,7 @@ export class ApiError extends Error {
 function headers(extra = {}) {
   const h = { ...extra };
   if (settings.code) h["x-access-code"] = settings.code;
+  if (settings.geminiKey) h["x-gemini-key"] = settings.geminiKey;
   return h;
 }
 
@@ -64,6 +65,14 @@ export async function stream(path, body, onEvent, signal) {
       }
     }
   }
+}
+
+/** Check a Gemini key. Returns {ok, error}. */
+export async function verifyKey(key) {
+  const h = headers({ "content-type": "application/json" });
+  if (key) h["x-gemini-key"] = key;
+  const res = await fetch("/api/verify", { method: "POST", headers: h, body: "{}" });
+  return res.json().catch(() => ({ ok: false, error: `Check failed (${res.status})` }));
 }
 
 export async function transcribe(blob, filename = "speech.wav") {
