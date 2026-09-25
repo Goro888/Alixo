@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   // Cloudflare only HOSTS the app. All AI is Google Gemini (your own API key).
   // Your app URL → https://legend-boy.<your-subdomain>.workers.dev
-  "name": "legend-boy",
+  "name": "alixo",
   "main": "src/worker.js",
   "compatibility_date": "2025-09-01",
 

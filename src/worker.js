@@ -84,8 +84,18 @@ function cleanKey(k) {
   return v;
 }
 
+const looksLikeKey = (v) => /^(AQ\.|AIza)[\w.-]{20,}$/.test(String(v || "").trim());
+const MODEL_VARS = ["GEMINI_MODEL", "GEMINI_TTS_MODEL", "GEMINI_IMAGE_MODEL", "TTS_SPEAKER"];
+
 function withKey(env, request) {
-  const serverKey = cleanKey(env.GEMINI_API_KEY);
+  env = { ...env };
+  // If the key was pasted into a model/voice variable by mistake, use it as the key
+  // and fall back to the default model for that variable.
+  let strayKey = "";
+  for (const n of MODEL_VARS) {
+    if (looksLikeKey(env[n])) { strayKey = strayKey || String(env[n]).trim(); delete env[n]; }
+  }
+  const serverKey = cleanKey(env.GEMINI_API_KEY) || strayKey;
   const appKey = cleanKey(request.headers.get("x-gemini-key"));
   return { ...env, GEMINI_API_KEY: serverKey || appKey, SERVER_KEY: Boolean(serverKey) };
 }

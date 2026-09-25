@@ -1,13 +1,13 @@
 {
-  "name": "legend-boy",
+  "name": "alixo",
   "version": "1.0.0",
   "private": true,
-  "description": "Legend Boy \u2014 a mobile AI assistant (chat, voice, camera, files, research) powered by Google Gemini, hosted on Cloudflare Workers",
+  "description": "Legend Boy — a mobile AI assistant (chat, voice, camera, files, research) powered by Google Gemini, hosted on Cloudflare Workers",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev --ip 0.0.0.0",
     "dev:demo": "wrangler dev -c wrangler.demo.jsonc --ip 0.0.0.0",
-    "deploy": "wrangler deploy",
+    "deploy": "node scripts/deploy.mjs",
     "login": "wrangler login",
     "check": "wrangler deploy --dry-run --outdir .wrangler/dry"
   },

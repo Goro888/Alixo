@@ -39,7 +39,7 @@ If a model isn't available on your plan, the app shows a clear error. Voice fall
 | `GEMINI_TTS_MODEL` = `gemini-3.8-flash-lite-tts` | Text | ✅ Automatic, from `wrangler.jsonc` |
 | `TTS_SPEAKER` = `Puck` | Text | ✅ Automatic, from `wrangler.jsonc` |
 | `GEMINI_IMAGE_MODEL` = `gemini-3.1-flash-lite-image` | Text | ✅ Automatic, from `wrangler.jsonc` |
-| `GEMINI_API_KEY` | **Secret** | ✅ The Deploy button asks for it (from `.dev.vars.example`), **or** the app asks for it the first time you open it |
+| `GEMINI_API_KEY` | **Secret** | ✅ The Deploy button asks for it, **or** `npm run deploy` copies it from your Build variables, **or** the app asks for it the first time you open it |
 
 ### 1) Deploy the app (pick one)
 
@@ -49,8 +49,9 @@ Cloudflare saves it as an encrypted **Secret** for you, and the 4 variables are 
 
 **B. Connect this repo (dashboard, works on a phone):**
 1. **dash.cloudflare.com → Workers & Pages → Create → Import a repository**
-2. Choose **Goro888/Alixo**, branch **main**. Leave **Build command** empty. **Deploy command:** `npx wrangler deploy`
-3. Tap **Deploy**. The 4 variables are added automatically.
+2. Choose **Goro888/Alixo**, branch **main**. Leave **Build command** empty. **Deploy command:** `npm run deploy`
+3. Under **Build → Variables and secrets**, add Type **Secret**, Name `GEMINI_API_KEY`, Value = your key
+4. Tap **Deploy**. The 4 variables are added automatically, and the deploy copies your key into the Worker as a runtime **Secret**.
 
 **C. From a computer:** `npm install && npx wrangler login && npm run deploy`
 
